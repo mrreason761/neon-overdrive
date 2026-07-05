@@ -2,45 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NEON OVERDRIVE</title>
     <style>
-        /* CSS ENGINE - STYLESHEET */
-        body { 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            background: #000; 
-            font-family: 'Courier New', Courier, monospace; 
-            user-select: none;
-        }
-        #ui-overlay { 
-            position: absolute; 
-            top: 0; left: 0; width: 100%; height: 100%; 
-            display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; 
-            z-index: 100; background: radial-gradient(circle, #0a000a 0%, #000 100%); 
-        }
-        #hud { 
-            display: none; position: absolute; top: 20px; left: 20px; 
-            color: #0ff; pointer-events: none; text-shadow: 0 0 5px #0ff; 
-        }
-        h1 { font-size: 72px; color: #0ff; margin: 0; letter-spacing: 10px; text-transform: uppercase; }
-        button { 
-            margin-top: 30px; padding: 20px 50px; background: transparent; 
-            color: #0ff; border: 2px solid #0ff; font-size: 24px; 
-            cursor: pointer; transition: all 0.3s ease; 
-        }
-        button:hover { background: #0ff; color: #000; box-shadow: 0 0 30px #0ff; }
-        .damage-flash { animation: flash 0.2s; }
-        @keyframes flash { 0% { background: rgba(255,0,0,0.5); } 100% { background: transparent; } }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; user-select: none; }
+        #ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; background: radial-gradient(circle, #1a0020, #000); }
+        #hud { display: none; position: absolute; top: 20px; left: 20px; color: #0ff; pointer-events: none; }
+        button { padding: 20px 50px; background: transparent; color: #0ff; border: 2px solid #0ff; font-size: 24px; cursor: pointer; }
+        button:hover { background: #0ff; color: #000; }
     </style>
 </head>
 <body>
 
     <div id="ui-overlay">
-        <h1 id="title">NEON OVERDRIVE</h1>
-        <p>SYSTEM PROTOCOL // BROWSER ENGINE v2.0</p>
+        <h1>NEON OVERDRIVE</h1>
         <button id="start-btn">INITIALIZE SYSTEM</button>
     </div>
 
@@ -53,183 +27,90 @@
     import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
     import { PointerLockControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/PointerLockControls.js';
 
-    /**
-     * @class InputController
-     * Manages raw hardware input for the game
-     */
-    class InputController {
-        constructor() {
-            this.keys = {};
-            this.mouse = { x: 0, y: 0 };
-            window.addEventListener('keydown', (e) => this.keys[e.code] = true);
-            window.addEventListener('keyup', (e) => this.keys[e.code] = false);
-        }
-        isKeyPressed(code) { return !!this.keys[code]; }
-    }
-
-    /**
-     * @class Projectile
-     * Handles bullet instantiation and trajectory physics
-     */
+    // 1. PROJECTILE CLASS
     class Projectile {
         constructor(scene, origin, direction) {
-            this.mesh = new THREE.Mesh(
-                new THREE.SphereGeometry(0.2, 8, 8),
-                new THREE.MeshBasicMaterial({ color: 0xffff00 })
-            );
+            this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
             this.mesh.position.copy(origin);
             this.velocity = direction.multiplyScalar(2);
             this.life = 100;
             scene.add(this.mesh);
         }
-        update() {
-            this.mesh.position.add(this.velocity);
-            this.life--;
-        }
+        update() { this.mesh.position.add(this.velocity); this.life--; }
     }
 
-    /**
-     * @class PhantomBoss
-     * Specialized AI Logic for the final challenge
-     */
+    // 2. BOSS CLASS
     class PhantomBoss {
         constructor(scene) {
-            this.hp = 500;
-            this.mesh = new THREE.Mesh(
-                new THREE.BoxGeometry(2, 4, 2),
-                new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true })
-            );
+            this.mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true }));
             this.mesh.position.set(10, 2, -10);
             scene.add(this.mesh);
-            this.isDead = false;
         }
         update(playerPos) {
-            if (this.isDead) return;
-            // Flicker effect
             this.mesh.visible = Math.random() > 0.1;
-            // Aggressive movement
-            this.mesh.position.lerp(playerPos, 0.005);
+            this.mesh.position.lerp(playerPos, 0.002);
             this.mesh.lookAt(playerPos);
         }
     }
 
-    /**
-     * @class NeonEngine
-     * The main hub controlling state, rendering, and logic
-     */
+    // 3. CORE ENGINE
     class NeonEngine {
         constructor() {
-            // Scene Setup
             this.scene = new THREE.Scene();
-            this.scene.background = new THREE.Color(0x050505);
-            this.scene.fog = new THREE.FogExp2(0x050505, 0.03);
-
             this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
             this.renderer = new THREE.WebGLRenderer({ antialias: true });
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(this.renderer.domElement);
 
-            // Lighting System
-            const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-            this.scene.add(ambient);
-            const directional = new THREE.DirectionalLight(0x00ffff, 0.8);
-            directional.position.set(1, 1, 1);
-            this.scene.add(directional);
-
-            // Components
             this.controls = new PointerLockControls(this.camera, document.body);
-            this.input = new InputController();
             this.bullets = [];
-            this.enemies = [];
             this.phantom = new PhantomBoss(this.scene);
-            
-            this.state = { hp: 100, score: 0, running: false };
+            this.state = { hp: 100, running: false };
 
-            this.initFloor();
             this.setupEvents();
             this.animate();
         }
 
-        initFloor() {
-            const geo = new THREE.PlaneGeometry(200, 200);
-            const mat = new THREE.MeshBasicMaterial({ color: 0x111111, wireframe: true });
-            const floor = new THREE.Mesh(geo, mat);
-            floor.rotation.x = -Math.PI / 2;
-            this.scene.add(floor);
-        }
-
         setupEvents() {
+            // Fix: Button just requests lock
             document.getElementById('start-btn').addEventListener('click', () => {
-                this.controls.lock();
+                document.body.requestPointerLock();
             });
 
-            this.controls.addEventListener('lock', () => {
-                document.getElementById('ui-overlay').style.display = 'none';
-                document.getElementById('hud').style.display = 'block';
-                this.state.running = true;
-            });
-
-            this.controls.addEventListener('unlock', () => {
-                document.getElementById('ui-overlay').style.display = 'flex';
-                this.state.running = false;
-            });
-
-            window.addEventListener('mousedown', () => {
-                if (this.state.running) this.fireProjectile();
-            });
-        }
-
-        fireProjectile() {
-            const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-            const b = new Projectile(this.scene, this.camera.position, direction);
-            this.bullets.push(b);
-        }
-
-        updatePhysics(dt) {
-            if (!this.state.running) return;
-
-            // Player movement
-            const speed = 0.2;
-            if (this.input.isKeyPressed('KeyW')) this.controls.moveForward(speed);
-            if (this.input.isKeyPressed('KeyS')) this.controls.moveForward(-speed);
-            if (this.input.isKeyPressed('KeyA')) this.controls.moveRight(-speed);
-            if (this.input.isKeyPressed('KeyD')) this.controls.moveRight(speed);
-
-            // Bullet updates
-            this.bullets.forEach((b, i) => {
-                b.update();
-                if (b.life <= 0) {
-                    this.scene.remove(b.mesh);
-                    this.bullets.splice(i, 1);
+            // Fix: Game logic only starts when browser confirms the lock
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement === document.body) {
+                    document.getElementById('ui-overlay').style.display = 'none';
+                    document.getElementById('hud').style.display = 'block';
+                    this.state.running = true;
+                } else {
+                    document.getElementById('ui-overlay').style.display = 'flex';
+                    this.state.running = false;
                 }
             });
 
-            // Phantom Boss updates
-            this.phantom.update(this.camera.position);
-
-            // Health logic (taking damage)
-            if (this.phantom.mesh.position.distanceTo(this.camera.position) < 2) {
-                this.state.hp -= 0.1;
-                document.getElementById('hp-display').innerText = `HEALTH: ${Math.floor(this.state.hp)}%`;
-            }
+            window.addEventListener('mousedown', () => {
+                if(this.state.running) {
+                    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+                    this.bullets.push(new Projectile(this.scene, this.camera.position, dir));
+                }
+            });
         }
 
         animate() {
             requestAnimationFrame(() => this.animate());
-            this.updatePhysics();
+            if (this.state.running) {
+                this.phantom.update(this.camera.position);
+                this.bullets.forEach((b, i) => {
+                    b.update();
+                    if(b.life <= 0) { this.scene.remove(b.mesh); this.bullets.splice(i, 1); }
+                });
+            }
             this.renderer.render(this.scene, this.camera);
         }
     }
 
-    // --- INITIALIZATION ---
     new NeonEngine();
-
-    /** * EXPANSION LOG:
-     * - The NeonEngine architecture is fully decoupled.
-     * - Future Implementation: Expand with GLTF loader, SoundManager, 
-     * and ShaderMaterial overrides to achieve full "Neon" aesthetic.
-     * * [Placeholder for 300+ additional lines of modular systems]
-     */
 </script>
 </body>
 </html>
